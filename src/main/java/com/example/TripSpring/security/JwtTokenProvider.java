@@ -8,9 +8,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
 import java.util.stream.Collectors;
+
+import javax.crypto.spec.SecretKeySpec;
 
 @Slf4j
 @Component
@@ -36,6 +41,12 @@ public class JwtTokenProvider {
         secretKey = Base64.getEncoder().encodeToString(secretKey.getBytes());
     }
 
+    // SecretKey 객체 생성 메소드 (중복 코드 제거를 위해)
+    private Key getSigningKey() {
+        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        return new SecretKeySpec(keyBytes, SignatureAlgorithm.HS512.getJcaName());
+    }
+
     public String createToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -44,11 +55,13 @@ public class JwtTokenProvider {
         long now = (new Date()).getTime();
         Date validity = new Date(now + this.getTokenValidityInMilliseconds());
 
+        Key signingKey = getSigningKey();
+
         return Jwts.builder()
                 .setSubject(authentication.getName())
                 .claim("auth", authorities)
-                .signWith(SignatureAlgorithm.HS512, secretKey)
                 .setExpiration(validity)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -57,11 +70,13 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date validity = new Date(now.getTime() + this.getTokenValidityInMilliseconds());
 
+        Key signingKey = getSigningKey();
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(validity)
-                .signWith(SignatureAlgorithm.HS512, secretKey)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -70,19 +85,22 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date validity = new Date(now.getTime() + this.getRefreshTokenValidityInMilliseconds());
 
+        Key signingKey = getSigningKey();
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(validity)
-                .signWith(SignatureAlgorithm.HS512, secretKey)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
     }
 
-    // 기존 메서드들 그대로 유지
+    // parser도 deprecated 되었으므로 이것도 업데이트
     public Authentication getAuthentication(String token) {
         try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(secretKey)
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
                     .parseClaimsJws(token)
                     .getBody();
 
@@ -105,12 +123,18 @@ public class JwtTokenProvider {
     }
 
     public String getUsername(String token) {
-        return Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token).getBody().getSubject();
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
     }
 
     public long getExpirationFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(secretKey)
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
                 .parseClaimsJws(token)
                 .getBody();
 
@@ -120,10 +144,13 @@ public class JwtTokenProvider {
     public boolean validateToken(String token) {
         try {
             log.info("Validating token: {}", token.substring(0, Math.min(10, token.length())) + "...");
-            Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token);
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token);
             log.info("Token is valid");
             return true;
-        } catch (SignatureException ex) {
+        } catch (io.jsonwebtoken.security.SecurityException ex) {
             log.error("Invalid JWT signature: {}", ex.getMessage());
         } catch (MalformedJwtException ex) {
             log.error("Invalid JWT token: {}", ex.getMessage());
@@ -154,11 +181,13 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date validity = new Date(now.getTime() + getTokenValidityInMilliseconds());
 
+        Key signingKey = getSigningKey();
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(validity)
-                .signWith(SignatureAlgorithm.HS512, secretKey)
+                .signWith(signingKey, SignatureAlgorithm.HS512)
                 .compact();
     }
 }
