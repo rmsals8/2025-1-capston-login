@@ -1,0 +1,57 @@
+# 환경 설정 파일
+.env
+application-*.properties
+application-*.yml
+!application-example.properties
+!application-example.yml
+
+# 컴파일된 클래스 파일
+/target/
+*.class
+
+# 로그 파일
+*.log
+replay_pid*.log
+hs_err_pid*.log
+
+# IDE 설정 파일
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+
+# 빌드 디렉토리
+/build/
+/out/
+/bin/
+
+# Maven 관련
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# 보안 관련 파일
+*.jks
+*.p12
+*.pem
+*.key
+jwt-secret.txt
+
+# 임시 파일들
+/temp/
+*.tmp
+*.bak
+*.swp
+
+# 개인 메모 및 설명 파일
+1.md
+2.md
+이거임 초본.txt
+
+# OS 관련 파일
+.DS_Store
+Thumbs.db
